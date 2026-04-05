@@ -167,7 +167,7 @@ adminRouter.get('/events/:id/results', async (req, res) => {
       isTop3: index < 3,
     }));
 
-    const totalVotes = photos.reduce((sum, p) => sum + ((p as { voteCount: number }).voteCount || 0), 0);
+    const totalVotes = photos.reduce((sum, p) => sum + (((p as unknown) as { voteCount: number }).voteCount || 0), 0);
 
     res.json({ photos, totalVotes });
   } catch (err) {
