@@ -1,0 +1,21 @@
+# fly.toml — generated for cu-photo-be
+# Deploy with: fly deploy
+
+app = "cu-photo-be"
+primary_region = "sin" # Singapore — closest to Thailand
+
+[build]
+
+[env]
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
