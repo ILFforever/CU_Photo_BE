@@ -145,6 +145,43 @@ voteRouter.get('/:id/photos', async (req, res) => {
   }
 });
 
+// GET /events/:id/results  (public — no auth)
+voteRouter.get('/:id/results', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const eventRef = db.collection('events').doc(id);
+    const eventSnap = await eventRef.get();
+    if (!eventSnap.exists) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    const photosSnap = await eventRef
+      .collection('photos')
+      .orderBy('voteCount', 'desc')
+      .get();
+
+    // Assign tied ranks (same voteCount → same rank)
+    const photos: Array<Record<string, unknown>> = [];
+    let rank = 1;
+    for (let i = 0; i < photosSnap.docs.length; i++) {
+      const doc = photosSnap.docs[i];
+      const data = doc.data();
+      if (i > 0 && data.voteCount < (photosSnap.docs[i - 1].data().voteCount as number)) {
+        rank = i + 1;
+      }
+      photos.push({ id: doc.id, ...data, rank, isTop3: rank <= 3 });
+    }
+
+    const totalVotes = photos.reduce((sum, p) => sum + ((p.voteCount as number) || 0), 0);
+    res.json({ photos, totalVotes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /events/:id/vote
 // Body: { phone: string; votingCode: string; photoId: string }
 voteRouter.post('/:id/vote', async (req, res) => {

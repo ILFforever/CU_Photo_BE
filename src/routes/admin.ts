@@ -189,14 +189,18 @@ adminRouter.get('/events/:id/results', async (req, res) => {
       .orderBy('voteCount', 'desc')
       .get();
 
-    const photos = photosSnap.docs.map((doc, index) => ({
-      id: doc.id,
-      ...doc.data(),
-      rank: index + 1,
-      isTop3: index < 3,
-    }));
+    const photos: Array<Record<string, unknown>> = [];
+    let rank = 1;
+    for (let i = 0; i < photosSnap.docs.length; i++) {
+      const doc = photosSnap.docs[i];
+      const data = doc.data();
+      if (i > 0 && data.voteCount < (photosSnap.docs[i - 1].data().voteCount as number)) {
+        rank = i + 1;
+      }
+      photos.push({ id: doc.id, ...data, rank, isTop3: rank <= 3 });
+    }
 
-    const totalVotes = photos.reduce((sum, p) => sum + (((p as unknown) as { voteCount: number }).voteCount || 0), 0);
+    const totalVotes = photos.reduce((sum, p) => sum + ((p.voteCount as number) || 0), 0);
 
     res.json({ photos, totalVotes });
   } catch (err) {
