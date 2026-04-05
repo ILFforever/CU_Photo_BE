@@ -9,7 +9,19 @@ import { seedDefaultAdmin } from './services/seedAdmin';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: allowedOrigins.length
+    ? (origin, cb) => {
+        if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+        else cb(new Error(`CORS: ${origin} not allowed`));
+      }
+    : '*',
+}));
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

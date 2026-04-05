@@ -1,21 +1,23 @@
-# fly.toml — generated for cu-photo-be
-# Deploy with: fly deploy
+# fly.toml app configuration file generated for cu-photo-be on 2026-04-06T03:52:10+07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "cu-photo-be"
-primary_region = "sin" # Singapore — closest to Thailand
+app = 'cu-photo-be'
+primary_region = 'sin'
 
 [build]
 
 [env]
-  PORT = "3000"
+  PORT = '3000'
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  size = 'shared-cpu-1x'
+  memory = '256mb'
