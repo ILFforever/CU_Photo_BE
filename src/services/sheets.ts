@@ -4,23 +4,38 @@ import { Photo } from '../types';
 function toCsvUrl(sheetUrl: string): string {
   // Extract spreadsheet ID and gid
   const idMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  const gidMatch = sheetUrl.match(/gid=(\d+)/);
+  const gidMatch = sheetUrl.match(/[#&?]gid=(\d+)/);
 
   if (!idMatch) throw new Error('Invalid Google Sheets URL');
 
   const id = idMatch[1];
-  const gid = gidMatch ? gidMatch[1] : '0';
+  const gid = gidMatch ? gidMatch[1] : null;
 
-  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
 }
 
 function parseCsv(csv: string): string[][] {
-  return csv
-    .trim()
-    .split('\n')
-    .map((row) =>
-      row.split(',').map((cell) => cell.trim().replace(/^"|"$/g, ''))
-    );
+  const rows: string[][] = [];
+  for (const line of csv.trim().split('\n')) {
+    const cells: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; } // escaped quote
+        else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        cells.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    cells.push(current.trim());
+    rows.push(cells);
+  }
+  return rows;
 }
 
 // Columns from the Google Form CSV:
@@ -28,8 +43,16 @@ function parseCsv(csv: string): string[][] {
 export async function fetchPhotosFromSheet(sheetUrl: string): Promise<Omit<Photo, 'id' | 'voteCount'>[]> {
   const csvUrl = toCsvUrl(sheetUrl);
 
-  const res = await fetch(csvUrl);
-  if (!res.ok) throw new Error(`Failed to fetch sheet: ${res.status}`);
+  console.log('[sheets] fetching:', csvUrl);
+  const res = await fetch(csvUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; cu-photo-be/1.0)' },
+  });
+  console.log('[sheets] response status:', res.status);
+  if (!res.ok) {
+    const body = await res.text();
+    console.log('[sheets] response body:', body.slice(0, 300));
+    throw new Error(`Failed to fetch sheet: ${res.status}`);
+  }
 
   const text = await res.text();
   const rows = parseCsv(text);
