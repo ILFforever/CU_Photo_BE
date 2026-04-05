@@ -67,6 +67,35 @@ adminRouter.get('/events', async (_req, res) => {
   }
 });
 
+// DELETE /admin/events/:id
+adminRouter.delete('/events/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const eventRef = db.collection('events').doc(id);
+    const snap = await eventRef.get();
+    if (!snap.exists) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    // Delete all subcollections
+    const subcollections = ['participants', 'photos', 'votes'];
+    for (const sub of subcollections) {
+      const subSnap = await eventRef.collection(sub).get();
+      const batch = db.batch();
+      subSnap.docs.forEach((doc) => batch.delete(doc.ref));
+      if (!subSnap.empty) await batch.commit();
+    }
+
+    await eventRef.delete();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // PATCH /admin/events/:id
 // Body: { isOpen?: boolean; votingCode?: string }
 adminRouter.patch('/events/:id', async (req, res) => {
