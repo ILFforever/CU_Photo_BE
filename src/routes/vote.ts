@@ -36,31 +36,43 @@ voteRouter.get('/active', async (_req, res) => {
   }
 });
 
-// POST /events/:id/verify
-// Body: { phone: string; fullName: string }
-// Looks up the participant by phone, then confirms the name matches.
-voteRouter.post('/:id/verify', async (req, res) => {
-  const { id } = req.params;
-  const { phone, fullName } = req.body as { phone?: string; fullName?: string };
+// POST /events/verify
+// Body: { phone: string; fullName: string; votingCode: string }
+// Finds the open event matching the voting code, then verifies the participant.
+voteRouter.post('/verify', async (req, res) => {
+  const { phone, fullName, votingCode } = req.body as { phone?: string; fullName?: string; votingCode?: string };
 
-  if (!phone || !fullName) {
-    res.status(400).json({ error: 'phone and fullName are required' });
+  if (!phone || !fullName || !votingCode) {
+    res.status(400).json({ error: 'phone, fullName, and votingCode are required' });
     return;
   }
 
-  const normalizedPhone = phone.replace(/\D/g, ''); // strip dashes/spaces
+  const normalizedPhone = phone.replace(/\D/g, '');
 
   try {
-    const eventSnap = await db.collection('events').doc(id).get();
-    if (!eventSnap.exists) {
-      res.status(404).json({ error: 'Event not found' });
+    // Find open event matching the voting code
+    const eventsSnap = await db.collection('events')
+      .where('isOpen', '==', true)
+      .where('votingCode', '==', votingCode)
+      .limit(1)
+      .get();
+
+    if (eventsSnap.empty) {
+      // Check if any event has this code but is closed
+      const closedSnap = await db.collection('events')
+        .where('votingCode', '==', votingCode)
+        .limit(1)
+        .get();
+      if (!closedSnap.empty) {
+        res.status(403).json({ error: 'VOTING_CLOSED' });
+      } else {
+        res.status(404).json({ error: 'รหัสโหวตไม่ถูกต้อง' });
+      }
       return;
     }
 
-    if (!eventSnap.data()?.isOpen) {
-      res.status(403).json({ error: 'VOTING_CLOSED' });
-      return;
-    }
+    const eventDoc = eventsSnap.docs[0];
+    const id = eventDoc.id;
 
     // Find participant by normalized phone
     const participantsSnap = await db
@@ -100,6 +112,7 @@ voteRouter.post('/:id/verify', async (req, res) => {
       : 0;
 
     res.json({
+      eventId: id,
       fullName: participant.fullName,
       nickname: participant.nickname,
       group: participant.group,

@@ -24,6 +24,13 @@ adminRouter.post('/events', async (req, res) => {
   }
 
   try {
+    // Reject duplicate voting codes across all events
+    const dupSnap = await db.collection('events').where('votingCode', '==', votingCode).limit(1).get();
+    if (!dupSnap.empty) {
+      res.status(409).json({ error: `Voting code "${votingCode}" is already used by another event` });
+      return;
+    }
+
     const eventRef = db.collection('events').doc();
 
     const batch = db.batch();
@@ -118,6 +125,15 @@ adminRouter.patch('/events/:id', async (req, res) => {
       res.status(404).json({ error: 'Event not found' });
       return;
     }
+
+    if (votingCode) {
+      const dupSnap = await db.collection('events').where('votingCode', '==', votingCode).limit(1).get();
+      if (!dupSnap.empty && dupSnap.docs[0].id !== id) {
+        res.status(409).json({ error: `Voting code "${votingCode}" is already used by another event` });
+        return;
+      }
+    }
+
     await eventRef.update(update);
     res.json({ ok: true });
   } catch (err) {
